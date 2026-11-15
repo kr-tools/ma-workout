@@ -163,7 +163,7 @@ const GROUPS={
  "팔":["바이셉 컬","해머 컬","트라이셉 푸시다운","오버헤드 트라이셉 익스텐션"],
  "복근 및 유산소":["크런치","레그 레이즈","플랭크","러닝머신","실내 자전거","일립티컬"]
 };
-const DOW=["월","화","수","목","금","토","일"],SUN=["일","월","화","수","목","금","토"],VER="1.0";
+const DOW=["월","화","수","목","금","토","일"],SUN=["일","월","화","수","목","금","토"],VER="2.0";
 const RK="workout-records-v1", CK="workout-custom-v1", GK="workout-groups-v1", CG="내가 추가한 운동";
 let memStore={};
 function lsGet(k,d){try{const v=localStorage.getItem(k);if(v===null)return memStore[k]!==undefined?memStore[k]:d;try{return JSON.parse(v)}catch(e){return d}}catch(e){return memStore[k]!==undefined?memStore[k]:d}}
@@ -298,28 +298,9 @@ function parseBackup(text){
    eg[gk]=x[gk].map(norm).filter(Boolean).slice(0,200);
   }
  }
- return{records:recs,customs,eg,days,ex};
+ return{records:recs,customs,eg,days,ex,exportedAt:o.exportedAt};
 }
 
-function RestoreModal({p,setP,run}){
- const d=p.data;
- const close=()=>setP(null);
- const merge=p.mode==="merge";
- return html`<div class="ov" onClick=${close}><div class="md w" role="dialog" onClick=${e=>e.stopPropagation()}>
-  ${p.stage==="choose"?html`<div>
-   <p><b>백업 파일을 읽었습니다.</b><br/>${d.days}일치 기록, 운동 ${d.ex}개<br/>현재 기록과 날짜가 겹치는 날: ${d.conflicts}일</p>
-   <p class="hint">복원하기 전에 설정 > 데이터 백업 및 복원에서 현재 기록을 먼저 저장해 두면 안전합니다.</p>
-   <button class="opt" onClick=${()=>setP({...p,mode:"merge",stage:"confirm"})}><b>기존 기록과 병합</b><small>같은 날짜는 기존 운동을 그대로 두고 백업의 운동을 뒤에 추가합니다. 내용이 완전히 같은 운동은 중복 추가하지 않습니다. 백업에만 있는 날짜는 새로 추가됩니다.</small></button>
-   <button class="opt" onClick=${()=>setP({...p,mode:"overwrite",stage:"confirm"})}><b>백업 기록으로 덮어쓰기</b><small>백업에 있는 날짜는 백업의 기록으로 교체됩니다. 백업에 없는 날짜의 기존 기록은 그대로 유지됩니다.</small></button>
-   <div class="acts"><button onClick=${close}>취소</button></div>
-  </div>`:html`<div>
-   <p><b>${merge?"병합":"덮어쓰기"}로 복원할까요?</b></p>
-   <p>${merge?"겹치는 "+d.conflicts+"일은 기존 운동 뒤에 백업 운동이 추가되고, 나머지 날짜는 새로 추가됩니다. 기존 기록은 삭제되지 않습니다.":"겹치는 "+d.conflicts+"일의 기존 기록은 백업 내용으로 교체됩니다. 백업에 없는 날짜의 기록은 유지됩니다."}</p>
-   <p class="hint">운동 종목 목록은 현재 목록에 없는 종목만 추가되고, 기존 종목은 지워지지 않습니다. 확인을 누르기 전에는 아무것도 바뀌지 않습니다.</p>
-   <div class="acts"><button onClick=${()=>setP({...p,stage:"choose"})}>이전</button><button class="btn" onClick=${run}>${merge?"병합":"덮어쓰기"} 실행</button></div>
-  </div>`}
- </div></div>`;
-}
 
 function BarChart({items}){
  const maxV=Math.max(0,...items.map(i=>i.v));
@@ -531,7 +512,6 @@ function App(){
  const [tab,setTab]=useState("home");
  const [sv,setSv]=useState(null);
  const [form,setForm]=useState(null);
- const [pend,setPend]=useState(null);
  const [impErr,setImpErr]=useState("");
  const [fb,setFb]=useState("");
  const [st,setSt]=useState(null);
@@ -606,9 +586,10 @@ function App(){
  const handleText=text=>{
   setImpErr("");
   const res=parseBackup(text);
-  if(res.error){setImpErr(res.error+" 기존 기록은 변경되지 않았습니다.");return}
-  const conflicts=Object.keys(res.records).filter(k=>records[k]&&records[k].length).length;
-  setPend({stage:"choose",mode:"merge",data:{...res,conflicts}});
+  if(res.error){setImpErr("복원 실패: "+res.error+" 기존 데이터는 그대로 유지됩니다.");return}
+  let t="알 수 없음";try{if(res.exportedAt){const dt=new Date(res.exportedAt);if(!isNaN(dt))t=dt.toLocaleString("ko-KR")}}catch(e){}
+  if(!window.confirm("백업 시각: "+t+"\n운동 기록 "+res.days+"일 · 운동 종목 "+res.ex+"개\n\n현재 데이터가 이 백업으로 교체됩니다. 계속할까요?"))return;
+  runRestore(res);
  };
  const onFile=e=>{
   const f=e.target.files&&e.target.files[0];e.target.value="";
@@ -619,27 +600,21 @@ function App(){
   rd.onload=()=>handleText(String(rd.result));
   rd.readAsText(f);
  };
- const runRestore=()=>{
-  const src=pend.data.records;
+ const runRestore=data=>{
+  const src=data.records;
   lsSet("workout-records-before-restore",records);
-  const next={...records};
+  const next={};
   Object.keys(src).forEach(k=>{
-   if(pend.mode==="overwrite"){next[k]=src[k];return}
-   const ex=records[k]||[];
-   const sig=r=>[r.name,r.reps,r.sets,r.weight,r.memo,(r.setReps||[]).join(","),(r.setWeights||[]).join(",")].join("\u0001");
-   const seen=new Set(ex.map(sig));const ids=new Set(ex.map(r=>r.id));
-   const add=[];
-   src[k].forEach(r=>{const s=sig(r);if(seen.has(s))return;seen.add(s);add.push(ids.has(r.id)?{...r,id:Date.now()+"-"+(uid++)}:r)});
-   next[k]=[...ex,...add];
+   next[k]=src[k];
   });
   const ng={};Object.keys(groups).forEach(k=>{ng[k]=[...groups[k]]});
   const low=new Set(Object.values(ng).flat().map(n=>n.toLowerCase()));
   const addTo=(gk,n)=>{if(!n||low.has(n.toLowerCase()))return;low.add(n.toLowerCase());(ng[gk]=ng[gk]||[]).push(n)};
-  if(pend.data.eg)Object.keys(pend.data.eg).forEach(gk=>pend.data.eg[gk].forEach(n=>addTo(gk in ng?gk:CG,n)));
-  else pend.data.customs.forEach(n=>addTo(CG,n));
+  if(data.eg)Object.keys(data.eg).forEach(gk=>data.eg[gk].forEach(n=>addTo(gk in ng?gk:CG,n)));
+  else data.customs.forEach(n=>addTo(CG,n));
   setRecords(next);setGroups(ng);
   const ok=saveKey(RK,next)&&saveKey(GK,ng);
-  setPend(null);setImpErr("");
+  setImpErr("");
   flash(ok?"복원이 완료되었습니다 ("+Object.keys(src).length+"일치)":"복원했지만 새로고침 시 유지되지 않을 수 있습니다",!ok);
  };
  const wipe=()=>setModal({msg:"모든 운동 기록이 삭제됩니다. 계속할까요? (운동 종목 목록은 유지됩니다)",okText:"계속",onOk:()=>setModal({msg:"정말 삭제할까요? 되돌릴 수 없습니다. (먼저 백업을 권장합니다)",okText:"삭제",onOk:()=>{
@@ -667,6 +642,7 @@ function App(){
   return html`<div>
    ${topH(html`<div class="d">${d.getFullYear()}년 ${d.getMonth()+1}월 ${d.getDate()}일 ${SUN[d.getDay()]}요일</div><small>${msg}</small>`)}
    ${bad&&html`<div class="imperr" role="alert" style=${{marginBottom:"14px"}}>${bad}</div>`}
+   ${Object.keys(records).length>0&&(daysSince===null||daysSince>=14)&&html`<div class="hint" style=${{margin:"0 0 14px"}}>💾 ${daysSince===null?"아직 백업한 적이 없어요.":"백업한 지 "+daysSince+"일이 지났어요."} 설정 > 데이터 백업 및 복원에서 파일을 받아 두면 안전해요.</div>`}
    ${sec("오늘의 운동",html`<button class="btn sm ghost" onClick=${()=>goTab("cal")}>캘린더 ›</button><button class="btn sm" onClick=${()=>setForm({rec:null,date:k})}>+ 추가</button>`,exItems(k))}
   </div>`;
  };
@@ -698,7 +674,10 @@ function App(){
     <button class="btn ghost back" onClick=${()=>setSv(null)}>← 설정으로 돌아가기</button>
     ${sec("데이터 백업","",html`<div><p class="muted">최근 백업: ${tt(lb)}</p><button class="btn full" onClick=${backup}>백업 파일 저장 (JSON)</button>
      ${fb&&html`<div style=${{marginTop:"12px"}}><div class="hint" style=${{margin:0}}>파일이 저장되지 않았다면, 아래 ‘전체 복사’를 눌러 메모 앱 등에 붙여넣어 보관하세요.</div><button class="btn ghost full" onClick=${async()=>{const ok=await copyText(fb);flash(ok?"복사했습니다. 메모 앱에 붙여넣어 보관하세요":"복사하지 못했습니다. 아래 상자를 길게 눌러 전체 선택 후 복사하세요",!ok)}}>전체 복사</button><textarea readOnly value=${fb} onFocus=${e=>e.target.select()}></textarea></div>`}</div>`)}
-    ${sec("데이터 복원","",html`<div><p class="muted">백업 파일을 불러오면 현재 데이터가 백업 내용으로 교체됩니다. 잘못된 파일은 거부되며 기존 데이터는 보호됩니다.</p> <button class="btn full ghost" data-act="restore">백업 파일 불러오기</button></div>`)}
+    ${sec("데이터 복원","",html`<div><p class="muted">백업 파일을 불러오면 현재 데이터가 백업 내용으로 교체됩니다. 잘못된 파일은 거부되며 기존 데이터는 보호됩니다.</p>
+     <button class="btn full ghost" onClick=${()=>fileRef.current&&fileRef.current.click()}>백업 파일 불러오기</button>
+     <input ref=${fileRef} type="file" accept=".json,application/json" style=${{display:"none"}} onChange=${onFile}/>
+     ${impErr&&html`<div class="imperr" role="alert">${impErr}</div>`}</div>`)}
     ${sec("저장 상태","",html`<p class="muted">데이터는 이 기기의 브라우저에만 저장됩니다.<br/>영구 저장 권한: ${per}${okSt}<br/>현재 저장된 운동기록 ${days.length}일 · 운동 ${exN}개<br/>마지막 저장: ${tt(sa)}</p>`)}
     ${sec("기타","",html`<div><p class="muted">앱 버전 ${VER}</p><button class="btn danger full" onClick=${wipe}>전체 데이터 삭제</button></div>`)}
    </div>`;
@@ -717,7 +696,6 @@ function App(){
   <nav role="tablist">${TABS.map(([k,e,l])=>html`<button key=${k} role="tab" aria-selected=${tab===k} class=${tab===k?"on":""} onClick=${()=>goTab(k)}>${e}<span>${l}</span></button>`)}</nav>
   ${toast&&html`<div class=${"toast"+(toast.err?" err":"")} role="status">${toast.msg}</div>`}
   ${form&&html`<${ExForm} key=${(form.rec?form.rec.id:"new")+form.date} init=${form.rec} date=${form.date} groups=${groups} addCustom=${addCustom} onSave=${saveEx} onDelete=${delEx} onClose=${()=>setForm(null)}/>`}
-  ${pend&&html`<${RestoreModal} p=${pend} setP=${setPend} run=${runRestore}/>`}
   ${modal&&html`<${Modal} msg=${modal.msg} okText=${modal.okText} onOk=${modal.onOk} onCancel=${()=>setModal(null)}/>`}
  </div>`;
 }
