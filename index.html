@@ -123,6 +123,7 @@ textarea{width:100%;min-height:120px;margin-top:8px;padding:8px 12px;border:1px 
 .xi span{flex:1;min-width:0;overflow-wrap:anywhere}
 .xi button{min-width:64px;min-height:44px}
 .gt{font-size:16px;font-weight:700;margin:18px 0 8px}
+.wn{margin-top:14px;border-top:1px solid var(--ln);padding-top:6px}.wnr{display:block;margin-top:10px}.wnr span{font-size:13px;color:var(--mu)}.wnr input{margin-top:4px}
 .chcard{padding:14px 12px 10px}
 .ch{display:flex;gap:6px;padding-top:18px}
 .chy{position:relative;width:28px;height:180px;flex:none}
@@ -163,8 +164,8 @@ const GROUPS={
  "팔":["바이셉 컬","해머 컬","트라이셉 푸시다운","오버헤드 트라이셉 익스텐션"],
  "복근 및 유산소":["크런치","레그 레이즈","플랭크","러닝머신","실내 자전거","일립티컬"]
 };
-const DOW=["월","화","수","목","금","토","일"],SUN=["일","월","화","수","목","금","토"],VER="1.0";
-const RK="workout-records-v1", CK="workout-custom-v1", GK="workout-groups-v1", CG="내가 추가한 운동";
+const DOW=["월","화","수","목","금","토","일"],SUN=["일","월","화","수","목","금","토"],VER="2.0";
+const RK="workout-records-v1", CK="workout-custom-v1", GK="workout-groups-v1", WK="workout-weeknotes-v1", CG="내가 추가한 운동";
 let memStore={};
 function lsGet(k,d){try{const v=localStorage.getItem(k);if(v===null)return memStore[k]!==undefined?memStore[k]:d;try{return JSON.parse(v)}catch(e){return d}}catch(e){return memStore[k]!==undefined?memStore[k]:d}}
 function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v));return true}catch(e){memStore[k]=v;return false}}
@@ -298,7 +299,9 @@ function parseBackup(text){
    eg[gk]=x[gk].map(norm).filter(Boolean).slice(0,200);
   }
  }
- return{records:recs,customs,eg,days,ex,exportedAt:o.exportedAt};
+ let wn=null;
+ if(o.weekNotes&&typeof o.weekNotes==="object"&&!Array.isArray(o.weekNotes)){wn={};for(const k of Object.keys(o.weekNotes)){if(/^\d{4}-\d{2}-\d$/.test(k)&&typeof o.weekNotes[k]==="string"&&o.weekNotes[k].trim())wn[k]=o.weekNotes[k].trim().slice(0,100)}}
+ return{records:recs,customs,eg,days,ex,exportedAt:o.exportedAt,weekNotes:wn};
 }
 
 
@@ -322,7 +325,11 @@ function BarChart({items}){
  </div>`;
 }
 
-function StatsView({records}){
+function WeekNote({label,k,notes,setNote}){
+ const [v,setV]=useState(notes[k]||"");
+ return html`<label class="wnr"><span>${label}</span><input type="text" maxlength="100" value=${v} placeholder="한 줄 코멘트" onChange=${e=>setV(e.target.value)} onBlur=${()=>{if(v!==(notes[k]||""))setNote(k,v)}}/></label>`;
+}
+function StatsView({records,notes,setNote}){
  const now=new Date();
  const years=[...new Set(Object.keys(records).filter(k=>records[k]&&records[k].length).map(k=>+k.slice(0,4)))].sort((a,b)=>a-b);
  const list=years.length?years:[now.getFullYear()];
@@ -354,11 +361,6 @@ function StatsView({records}){
    <select class="ysel" value=${Y} onChange=${e=>setYr(+e.target.value)} aria-label="연도 선택">${list.map(y=>html`<option key=${y} value=${y}>${y}년</option>`)}</select>
   </div>
   ${!yearHas?html`<div class="card empty">해당 연도에 기록된 운동기록이 없습니다.</div>`:html`<div>
-   <div class="card"><div class="sum">
-    <div><b>${tot.d}</b><span>운동 일수</span></div>
-    <div><b>${tot.s}</b><span>총 세트 수</span></div>
-    <div><b>${tot.r}</b><span>총 반복 횟수</span></div>
-   </div></div>
    <div class="gt">월별 운동 일수</div>
    <div class="card chcard"><${BarChart} items=${M.map((x,i)=>({l:(i+1)+"월",v:x.d}))}/></div>
    <div class="sbar" style=${{marginTop:"18px"}}>
@@ -367,10 +369,7 @@ function StatsView({records}){
    </div>
    <div class="card chcard" style=${{marginTop:"8px"}}>
     <${BarChart} items=${weeks}/>
-    <div class="ft">
-     <div><b>${wTot}일</b>${mo+1}월 총 운동 일수</div>
-     <div><b>${(wTot/weeks.length).toFixed(1)}일</b>주간 평균 운동 일수</div>
-    </div>
+    <div class="wn">${weeks.map((w,i)=>html`<${WeekNote} key=${Y+"-"+mo+"-"+i} label=${w.l+" ("+w.s+")"} k=${Y+"-"+String(mo+1).padStart(2,"0")+"-"+(i+1)} notes=${notes} setNote=${setNote}/>`)}</div>
    </div>
   </div>`}
  </div>`;
@@ -494,6 +493,8 @@ function ExForm({init,date,groups,addCustom,onSave,onDelete,onClose}){
 function App(){
  const t=new Date();
  const [records,setRecords]=useState(()=>{const r=lsGet(RK,{});return r&&typeof r==="object"&&!Array.isArray(r)?r:{}});
+ const [notes,setNotes]=useState(()=>{const r=lsGet(WK,{});return r&&typeof r==='object'&&!Array.isArray(r)?r:{}});
+ const setNote=(k,v)=>{const n={...notes};if(v.trim())n[k]=v.trim();else delete n[k];setNotes(n);if(!saveKey(WK,n))flash("저장했지만 새로고침하면 유지되지 않을 수 있습니다",true)};
  const [groups,setGroups]=useState(()=>{
   const saved=lsGet(GK,null);
   if(saved&&typeof saved==="object"&&!Array.isArray(saved))return buildGroups(saved);
@@ -573,7 +574,7 @@ function App(){
   const keys=Object.keys(records).filter(k=>records[k]&&records[k].length).sort();
   if(!keys.length){flash("백업할 운동기록이 없습니다",true);return}
   const out={};keys.forEach(k=>{out[k]=records[k]});
-  const text=JSON.stringify({app:"나의 운동기록",version:1,exportedAt:new Date().toISOString(),customExercises:customs,exerciseGroups:groups,records:out},null,2);
+  const text=JSON.stringify({app:"나의 운동기록",version:1,exportedAt:new Date().toISOString(),customExercises:customs,exerciseGroups:groups,weekNotes:notes,records:out},null,2);
   const filename="나의운동기록_백업_"+todayKey()+".json";
   setFb("");
   const r=await saveFile(filename,text);
@@ -613,23 +614,26 @@ function App(){
   if(data.eg)Object.keys(data.eg).forEach(gk=>data.eg[gk].forEach(n=>addTo(gk in ng?gk:CG,n)));
   else data.customs.forEach(n=>addTo(CG,n));
   setRecords(next);setGroups(ng);
-  const ok=saveKey(RK,next)&&saveKey(GK,ng);
+  let ok=saveKey(RK,next)&&saveKey(GK,ng);
+  if(data.weekNotes){setNotes(data.weekNotes);ok=saveKey(WK,data.weekNotes)&&ok}
   setImpErr("");
   flash(ok?"복원이 완료되었습니다 ("+Object.keys(src).length+"일치)":"복원했지만 새로고침 시 유지되지 않을 수 있습니다",!ok);
  };
- const wipe=()=>setModal({msg:"모든 운동 기록이 삭제됩니다. 계속할까요? (운동 종목 목록은 유지됩니다)",okText:"계속",onOk:()=>setModal({msg:"정말 삭제할까요? 되돌릴 수 없습니다. (먼저 백업을 권장합니다)",okText:"삭제",onOk:()=>{
-  lsSet("workout-records-before-wipe",records);commit({});setModal(null);flash("모든 운동 기록을 삭제했어요");
- }})});
+ const wipe=()=>{
+  if(!window.confirm("모든 운동 기록이 삭제됩니다.\n(운동 종목 목록은 유지됩니다)\n계속할까요?"))return;
+  if(!window.confirm("정말 삭제할까요? 되돌릴 수 없습니다.\n(먼저 백업을 권장합니다)"))return;
+  lsSet("workout-records-before-wipe",records);commit({});flash("모든 운동 기록을 삭제했어요");
+ };
 
  const sec=(title,more,body)=>html`<section class="card"><div class="hd"><h2>${title}</h2><div>${more}</div></div>${body}</section>`;
- const exItems=k=>{
+ const exItems=(k,grp)=>{
   const l=records[k]||[];
   if(!l.length)return html`<p class="empty">등록된 운동이 없어요</p>`;
   return l.map((r,idx)=>{
    const a=repsArr(r),wa=weightsArr(r);
    return html`<div class="li" key=${r.id||idx}><div class="g" onClick=${()=>setForm({rec:r,date:k})}>
     <p><b>${r.name}</b><span class="pri">${a.length?a.length+"세트":"세트 정보 없음"}</span></p>
-    ${a.map((v,i)=>html`<small class="sl" key=${i}>${i+1}세트: ${v?v+"회":"미입력"}${wa[i]?" × "+wa[i]+"kg":""}</small>`)}
+    ${grp?(()=>{const g=[];a.forEach((v,i)=>{const t=(v?v+"회":"미입력")+(wa[i]?" × "+wa[i]+"kg":"");const f=g.find(x=>x.t===t);if(f)f.n++;else g.push({t,n:1})});return g.map((x,i)=>html`<small class="sl" key=${i}>${x.t} × ${x.n}set</small>`)})():a.map((v,i)=>html`<small class="sl" key=${i}>${i+1}세트: ${v?v+"회":"미입력"}${wa[i]?" × "+wa[i]+"kg":""}</small>`)}
     ${filled(r.memo)&&html`<small class="sl">메모: ${r.memo}</small>`}
    </div></div>`;
   });
@@ -656,10 +660,10 @@ function App(){
   return html`<div>
    ${topH(null)}
    <section class="card"><div class="nav2"><button class="btn sm ghost" onClick=${()=>mv(-1)} aria-label="이전 달">‹</button><b>${y}년 ${m+1}월</b><button class="btn sm ghost" onClick=${()=>mv(1)} aria-label="다음 달">›</button><button class="btn sm" onClick=${()=>{const q=new Date();setCur({y:q.getFullYear(),m:q.getMonth()});setPicked(todayKey())}}>오늘</button></div><div class="grid">${c}</div><small><span style=${{color:"var(--g)"}}>●</span> 운동 기록</small></section>
-   ${sec((sd.getMonth()+1)+"월 "+sd.getDate()+"일 ("+SUN[sd.getDay()]+") 운동기록",html`<button class="btn sm" onClick=${()=>setForm({rec:null,date:picked})}>+ 기록</button>`,exItems(picked))}
+   ${sec((sd.getMonth()+1)+"월 "+sd.getDate()+"일 ("+SUN[sd.getDay()]+") 운동기록",html`<button class="btn sm" onClick=${()=>setForm({rec:null,date:picked})}>+ 기록</button>`,exItems(picked,true))}
   </div>`;
  };
- const vStats=()=>html`<div>${topH(null)}<${StatsView} records=${records}/></div>`;
+ const vStats=()=>html`<div>${topH(null)}<${StatsView} records=${records} notes=${notes} setNote=${setNote}/></div>`;
  const vSet=()=>{
   if(sv==="ex")return html`<div>${topH(null)}<${ExerciseScreen} groups=${groups} saveGroups=${saveGroups} records=${records} back=${()=>setSv(null)} flash=${flash} confirm=${setModal}/></div>`;
   if(sv==="bk"){

@@ -1,6 +1,6 @@
 // 앱 파일을 기기에 저장해 두었다가 오프라인에서도 열리게 하는 서비스 워커.
 // 운동기록(localStorage)은 건드리지 않습니다. 앱을 수정하면 CACHE 숫자를 올려 주세요.
-const CACHE='workout-app-v8';
+const CACHE='workout-app-v9';
 const FILES=['./','./index.html','./manifest.json','./icon-192.png','./icon-512.png','./apple-touch-icon.png',
 'https://cdn.jsdelivr.net/npm/react@18.3.1/umd/react.production.min.js',
 'https://cdn.jsdelivr.net/npm/react-dom@18.3.1/umd/react-dom.production.min.js',
