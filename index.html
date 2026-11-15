@@ -163,7 +163,7 @@ const GROUPS={
  "팔":["바이셉 컬","해머 컬","트라이셉 푸시다운","오버헤드 트라이셉 익스텐션"],
  "복근 및 유산소":["크런치","레그 레이즈","플랭크","러닝머신","실내 자전거","일립티컬"]
 };
-const DOW=["월","화","수","목","금","토","일"],SUN=["일","월","화","수","목","금","토"],VER="2.0";
+const DOW=["월","화","수","목","금","토","일"],SUN=["일","월","화","수","목","금","토"],VER="1.0";
 const RK="workout-records-v1", CK="workout-custom-v1", GK="workout-groups-v1", CG="내가 추가한 운동";
 let memStore={};
 function lsGet(k,d){try{const v=localStorage.getItem(k);if(v===null)return memStore[k]!==undefined?memStore[k]:d;try{return JSON.parse(v)}catch(e){return d}}catch(e){return memStore[k]!==undefined?memStore[k]:d}}
