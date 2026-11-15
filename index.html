@@ -123,7 +123,7 @@ textarea{width:100%;min-height:120px;margin-top:8px;padding:8px 12px;border:1px 
 .xi span{flex:1;min-width:0;overflow-wrap:anywhere}
 .xi button{min-width:64px;min-height:44px}
 .gt{font-size:16px;font-weight:700;margin:18px 0 8px}
-.wn{margin-top:14px;border-top:1px solid var(--ln);padding-top:6px}.wnr{display:block;margin-top:10px}.wnr span{font-size:13px;color:var(--mu)}.wnr input{margin-top:4px}
+.wn{margin-top:14px;border-top:1px solid var(--ln);padding-top:6px}.wnr{display:flex;align-items:center;gap:10px;margin-top:10px}.wnr span{flex:0 0 auto;font-size:14px;font-weight:600}.wnr input{flex:1 1 auto;width:auto;min-width:0;margin-top:0}
 .chcard{padding:14px 12px 10px}
 .ch{display:flex;gap:6px;padding-top:18px}
 .chy{position:relative;width:28px;height:180px;flex:none}
@@ -327,7 +327,7 @@ function BarChart({items}){
 
 function WeekNote({label,k,notes,setNote}){
  const [v,setV]=useState(notes[k]||"");
- return html`<label class="wnr"><span>${label}</span><input type="text" maxlength="100" value=${v} placeholder="한 줄 코멘트" onChange=${e=>setV(e.target.value)} onBlur=${()=>{if(v!==(notes[k]||""))setNote(k,v)}}/></label>`;
+ return html`<label class="wnr"><span>${label}</span><input type="text" maxlength="30" value=${v} placeholder="한 줄 코멘트 (최대30자)" onChange=${e=>setV(e.target.value)} onBlur=${()=>{if(v!==(notes[k]||""))setNote(k,v)}}/></label>`;
 }
 function StatsView({records,notes,setNote}){
  const now=new Date();
@@ -369,7 +369,7 @@ function StatsView({records,notes,setNote}){
    </div>
    <div class="card chcard" style=${{marginTop:"8px"}}>
     <${BarChart} items=${weeks}/>
-    <div class="wn">${weeks.map((w,i)=>html`<${WeekNote} key=${Y+"-"+mo+"-"+i} label=${w.l+" ("+w.s+")"} k=${Y+"-"+String(mo+1).padStart(2,"0")+"-"+(i+1)} notes=${notes} setNote=${setNote}/>`)}</div>
+    <div class="wn">${weeks.map((w,i)=>html`<${WeekNote} key=${Y+"-"+mo+"-"+i} label=${w.l} k=${Y+"-"+String(mo+1).padStart(2,"0")+"-"+(i+1)} notes=${notes} setNote=${setNote}/>`)}</div>
    </div>
   </div>`}
  </div>`;
@@ -682,7 +682,7 @@ function App(){
      <button class="btn full ghost" onClick=${()=>fileRef.current&&fileRef.current.click()}>백업 파일 불러오기</button>
      <input ref=${fileRef} type="file" accept=".json,application/json" style=${{display:"none"}} onChange=${onFile}/>
      ${impErr&&html`<div class="imperr" role="alert">${impErr}</div>`}</div>`)}
-    ${sec("저장 상태","",html`<p class="muted">데이터는 이 기기의 브라우저에만 저장됩니다.<br/>영구 저장 권한: ${per}${okSt}<br/>현재 저장된 운동기록 ${days.length}일 · 운동 ${exN}개<br/>`)}
+    ${sec("저장 상태","",html`<p class="muted">데이터는 이 기기의 브라우저에만 저장됩니다.<br/>영구 저장 권한: ${per}${okSt}<br/>현재 저장된 운동기록 ${days.length}일 · 운동 ${exN}개<br/>마지막 저장: ${tt(sa)}</p>`)}
     ${sec("기타","",html`<div><p class="muted">앱 버전 ${VER}</p><button class="btn danger full" onClick=${wipe}>전체 데이터 삭제</button></div>`)}
    </div>`;
   }
@@ -705,7 +705,18 @@ function App(){
 }
 if("serviceWorker" in navigator&&location.protocol==="https:")window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
 try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persist()}catch(e){}
-ReactDOM.createRoot(document.getElementById("root")).render(html`<${App}/>`);
+class EB extends React.Component{
+ constructor(p){super(p);this.state={e:null}}
+ static getDerivedStateFromError(e){return{e}}
+ render(){
+  if(!this.state.e)return this.props.children;
+  return React.createElement("div",{style:{padding:"24px 18px"}},
+   React.createElement("p",null,"화면을 표시하는 중 오류가 발생했어요. 저장된 기록은 그대로예요."),
+   React.createElement("p",{className:"muted",style:{wordBreak:"break-all"}},String(this.state.e&&this.state.e.message||this.state.e)),
+   React.createElement("button",{className:"btn full",onClick:()=>location.reload()},"다시 불러오기"));
+ }
+}
+ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(EB,null,html`<${App}/>`));
 </script>
 </body>
 </html>
