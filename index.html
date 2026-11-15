@@ -698,10 +698,7 @@ function App(){
     <button class="btn ghost back" onClick=${()=>setSv(null)}>← 설정으로 돌아가기</button>
     ${sec("데이터 백업","",html`<div><p class="muted">최근 백업: ${tt(lb)}</p><button class="btn full" onClick=${backup}>백업 파일 저장 (JSON)</button>
      ${fb&&html`<div style=${{marginTop:"12px"}}><div class="hint" style=${{margin:0}}>파일이 저장되지 않았다면, 아래 ‘전체 복사’를 눌러 메모 앱 등에 붙여넣어 보관하세요.</div><button class="btn ghost full" onClick=${async()=>{const ok=await copyText(fb);flash(ok?"복사했습니다. 메모 앱에 붙여넣어 보관하세요":"복사하지 못했습니다. 아래 상자를 길게 눌러 전체 선택 후 복사하세요",!ok)}}>전체 복사</button><textarea readOnly value=${fb} onFocus=${e=>e.target.select()}></textarea></div>`}</div>`)}
-    ${sec("데이터 복원","",html`<div><p class="muted">백업 파일을 고른 뒤 병합·덮어쓰기를 선택하고 한 번 더 확인해야 실행되며, 그 전에는 아무것도 바뀌지 않습니다. 잘못된 파일은 거부되며 기존 데이터는 보호됩니다.</p>
-     <button class="btn full ghost" onClick=${()=>fileRef.current&&fileRef.current.click()}>백업 파일 불러오기</button>
-     <input ref=${fileRef} type="file" accept=".json,application/json" style=${{display:"none"}} onChange=${onFile}/>
-     ${impErr&&html`<div class="imperr" role="alert">${impErr}</div>`}</div>`)}
+    ${sec("데이터 복원","",html`<div><p class="muted">백업 파일을 불러오면 현재 데이터가 백업 내용으로 교체됩니다. 잘못된 파일은 거부되며 기존 데이터는 보호됩니다.</p> <button class="btn full ghost" data-act="restore">백업 파일 불러오기</button></div>`)}
     ${sec("저장 상태","",html`<p class="muted">데이터는 이 기기의 브라우저에만 저장됩니다.<br/>영구 저장 권한: ${per}${okSt}<br/>현재 저장된 운동기록 ${days.length}일 · 운동 ${exN}개<br/>마지막 저장: ${tt(sa)}</p>`)}
     ${sec("기타","",html`<div><p class="muted">앱 버전 ${VER}</p><button class="btn danger full" onClick=${wipe}>전체 데이터 삭제</button></div>`)}
    </div>`;
