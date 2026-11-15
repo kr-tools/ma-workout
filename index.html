@@ -682,7 +682,7 @@ function App(){
      <button class="btn full ghost" onClick=${()=>fileRef.current&&fileRef.current.click()}>백업 파일 불러오기</button>
      <input ref=${fileRef} type="file" accept=".json,application/json" style=${{display:"none"}} onChange=${onFile}/>
      ${impErr&&html`<div class="imperr" role="alert">${impErr}</div>`}</div>`)}
-    ${sec("저장 상태","",html`<p class="muted">데이터는 이 기기의 브라우저에만 저장됩니다.<br/>영구 저장 권한: ${per}${okSt}<br/>현재 저장된 운동기록 ${days.length}일 · 운동 ${exN}개<br/>마지막 저장: ${tt(sa)}</p>`)}
+    ${sec("저장 상태","",html`<p class="muted">데이터는 이 기기의 브라우저에만 저장됩니다.<br/>영구 저장 권한: ${per}${okSt}<br/>현재 저장된 운동기록 ${days.length}일 · 운동 ${exN}개<br/>`)}
     ${sec("기타","",html`<div><p class="muted">앱 버전 ${VER}</p><button class="btn danger full" onClick=${wipe}>전체 데이터 삭제</button></div>`)}
    </div>`;
   }
