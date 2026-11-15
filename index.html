@@ -667,7 +667,6 @@ function App(){
   return html`<div>
    ${topH(html`<div class="d">${d.getFullYear()}년 ${d.getMonth()+1}월 ${d.getDate()}일 ${SUN[d.getDay()]}요일</div><small>${msg}</small>`)}
    ${bad&&html`<div class="imperr" role="alert" style=${{marginBottom:"14px"}}>${bad}</div>`}
-   ${Object.keys(records).length>0&&(daysSince===null||daysSince>=14)&&html`<div class="hint" style=${{margin:"0 0 14px"}}>💾 ${daysSince===null?"아직 백업한 적이 없어요.":"백업한 지 "+daysSince+"일이 지났어요."} 설정 > 데이터 백업 및 복원에서 파일을 받아 두면 안전해요.</div>`}
    ${sec("오늘의 운동",html`<button class="btn sm ghost" onClick=${()=>goTab("cal")}>캘린더 ›</button><button class="btn sm" onClick=${()=>setForm({rec:null,date:k})}>+ 추가</button>`,exItems(k))}
   </div>`;
  };
